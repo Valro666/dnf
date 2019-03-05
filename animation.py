@@ -25,7 +25,7 @@ class dnf:
 		self.tay = self.taille*2
 		self.kernel = np.zeros([self.tay, self.tay], dtype=float)
 
-		self.tker2 = self.taille*2
+		self.tker2 = self.taille*3
 		self.sigker2 = 2
 		self.kernel2 = np.zeros([self.tker2, self.tker2], dtype=float)
 
@@ -36,11 +36,14 @@ class dnf:
 		self.clik = 10
 		self.vitesse = self.clik+1
 		self.ampli = 0.25
-		self.sensX = 1;
+		self.vitesse = 0.25
 
+		self.sens =  1
+
+		fool = 0.5
 		for i in range(self.tay):
 			for j in range(self.tay):
-				d = np.sqrt(((i/(self.tay)-0.5) ** 2 + ((j/(self.tay)-0.5) ** 2))) / np.sqrt(0.5)
+				d = np.sqrt(((i/(self.tay)-fool) ** 2 + ((j/(self.tay)-fool) ** 2))) / np.sqrt(fool)
 				self.kernel[i, j] = self.difference_of_gaussian(d)
 
 		for i in range(self.tker2) :
@@ -92,7 +95,7 @@ class dnf:
 		
 		self.inputt /= top
 
-	def gaussian_activity_bruit(self,	a = None, b = None, sig = None,ampli = None):# a et b centre, sig 
+	def gaussian_activity_bruit_G(self,	a = None, b = None, sig = None,ampli = None):# a et b centre, sig 
 		if a is None :
 			a = self.p1
 		if b is None :
@@ -102,6 +105,36 @@ class dnf:
 		if ampli is None :
 			ampli = 0.25
 
+		#bruit
+
+		bruit = np.zeros([2,10])
+		for i in range(10) :
+			bruit[0,i] = np.random.rand(1)*45
+			bruit[1,i] = np.random.rand(1)*45
+		
+		#print(self.vitesse,self.clik)
+
+		for x in range(self.taille) :
+			for y in range(self.taille) :
+				self.inputt[x][y] = self.func2(self.euclidien_dist(a,[x,y]))+self.func2(self.euclidien_dist(b,[x,y]))
+				for i in range(10) :
+					self.inputt[x][y] += self.func2(self.euclidien_dist([bruit[0,i],bruit[1,i]],[x,y]))
+
+
+		top = np.max(self.inputt)
+		
+		self.inputt /= top
+
+	def gaussian_activity_bruit(self,	a = None, b = None, sig = None,ampli = None):# a et b centre, sig 
+		if a is None :
+			a = self.p1
+		if b is None :
+			b = self.p2
+		if sig is None :
+			sig = self.sig
+		if ampli is None :
+			ampli = 0.1
+
 		
 		#print(self.vitesse,self.clik)
 
@@ -109,7 +142,7 @@ class dnf:
 			for y in range(self.taille) :
 				self.inputt[x][y] = self.func2(self.euclidien_dist(a,[x,y]))+self.func2(self.euclidien_dist(b,[x,y]))
 				#if self.clik >= self.vitesse :
-				if np.random.rand(1) > 0.5 :
+				if np.random.rand(1) > 0.9 :
 					#self.inputt[x][y] += self.func2(self.euclidien_dist((self.taille/2,self.taille/2),[x,y]),self.taille)
 					self.inputt[x][y] += np.random.rand(1)*ampli
 				else :
@@ -168,12 +201,16 @@ class dnf:
 	def move(self) :
 
 		if self.p2[1] > self.taille*0.75 : 
-			self.sensX *= -1
+			self.vitesse *= -1
 
 		if self.p2[1] < self.taille*0.25 : 
-			self.sensX *= -1
+			self.vitesse *= -1
 
-		self.p2[1] += self.sensX
+		self.p2[1] += self.vitesse
+		self.p1[1] -= self.vitesse
+
+		self.p2[0] += self.vitesse
+		self.p1[0] -= self.vitesse
 
 	def cheat(self) :
 
@@ -211,42 +248,47 @@ class dnf:
 		res = np.random.random((self.taille, self.taille))
 		n = 0
 		nn = np.inf
-		#print(self.runge(1,0,1))
-
-		#self.lat = np.zeros([taille,taille])
 		self.gaussian_activity()
-		#self.move()
-
-		#self.gaussian_activity_bruit()
-		#self.lat = self.lateral()
 		self.cheat()
-		#self.lateral = self.runge(self.lateral)
-		#self.laterall()
-		#self.teral()
-		#for o in range(self.taille) :
-		#	for p in range(self.taille) :
-		#		self.somm2(o,p)
-
-		#maa = np.max(self.lat)
-		#if maa > 0 :
-		#	self.lat /= maa
 
 		for o in range(self.taille) :
 			for p in range(self.taille) :
 				self.dnf[o][p] += self.dt*((-self.dnf[o][p]+self.lateral[o][p]+self.inputt[o][p])/self.to)
-				
-				#self.dnf[o][p] =  self.runge(self.lateral[o][p]) + self.inputt[o][p] - self.dnf[o][p]
-				#self.dnf[o][p] =  self.runge(self.dnf[o][p]*self.difference_of_gaussian(self.lateral[o][p])) + self.inputt[o][p] - self.dnf[o][p]
-				
+		
 				if self.dnf[o][p] < 0 :
 					self.dnf[o][p] = 0
 				if self.dnf[o][p]  > 1 :
 					self.dnf[o][p] = 1
 
 		self.temps += self.dt
-		#m = np.max(self.dnf)
-		#if m > 0 :
-		#	self.dnf /= m
+
+
+
+
+
+
+
+
+	def update_neuron_mobil(self) :
+		som = 0
+		res = np.random.random((self.taille, self.taille))
+		n = 0
+		nn = np.inf
+		self.move()
+		self.gaussian_activity()
+		self.cheat()
+
+		for o in range(self.taille) :
+			for p in range(self.taille) :
+				self.dnf[o][p] += self.dt*((-self.dnf[o][p]+self.lateral[o][p]+self.inputt[o][p])/self.to)
+		
+				if self.dnf[o][p] < 0 :
+					self.dnf[o][p] = 0
+				if self.dnf[o][p]  > 1 :
+					self.dnf[o][p] = 1
+
+		self.temps += self.dt
+
 
 	def update_neuron_bruit(self) :
 		som = 0
@@ -254,6 +296,26 @@ class dnf:
 		n = 0
 		nn = np.inf
 		self.gaussian_activity_bruit()
+		self.cheat()
+
+		for o in range(self.taille) :
+			for p in range(self.taille) :
+				self.dnf[o][p] += self.dt*((-self.dnf[o][p]+self.lateral[o][p]+self.inputt[o][p])/self.to)
+				
+				if self.dnf[o][p] < 0 :
+					self.dnf[o][p] = 0
+				if self.dnf[o][p]  > 1 :
+					self.dnf[o][p] = 1
+
+		self.temps += self.dt
+		self.clik = self.clik +1
+
+	def update_neuron_bruit_gauss(self) :
+		som = 0
+		res = np.random.random((self.taille, self.taille))
+		n = 0
+		nn = np.inf
+		self.gaussian_activity_bruit_G()
 		self.cheat()
 
 		for o in range(self.taille) :
@@ -329,12 +391,16 @@ def updatefig(*args):
 								# le dnf et le latteral clignote mais parfois il arrive a ce stabiliser
 								# argument = dt
 
-	#bid.update_neuron_bruit() # update neurone synchrone vanilla avec ajour bruit gaussien sur l inputt
+	#bid.update_neuron_bruit() # update neurone synchrone vanilla avec bruit
 
-	bid.update_neuron_bruit_vit(5) # update neurone synchrone vanilla
+	#bid.update_neuron_bruit_gauss() ## update neurone synchrone vanilla avec ajour bruit gaussien sur l inputt
+
+	#bid.update_neuron_bruit_vit(5) # update neurone synchrone vanilla
 									# avec vitesse du bruit gaussien reglable 
 									# vitesse = valeur entiere
 									# 0 est le plus rapide 
+
+	#bid.update_neuron_mobil()
 
 	im.set_array(bid.dnf)
 
@@ -364,5 +430,5 @@ if __name__ == '__main__':
 	plt.subplot(2, 3, 1)
 	im = plt.imshow(bid.dnf, cmap='hot', interpolation='nearest', animated=True)
 	plt.title("dnf")
-	ani = animation.FuncAnimation(fig, updatefig, interval=100, blit=True)
+	ani = animation.FuncAnimation(fig, updatefig, interval=5, blit=True)
 	plt.show()
